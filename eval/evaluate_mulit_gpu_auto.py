@@ -38,7 +38,7 @@ bleu_beam = evaluate.load("sacrebleu")
 rouge_beam = evaluate.load('rouge')
 perplexity_beam = evaluate.load('perplexity')
 
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+#device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 #device = torch.device("cpu")
 
 def parse_args(): 
@@ -79,9 +79,9 @@ def parse_args():
     return args
 
 def load_model_tokenizer(model_id, pathPeftModel=None):
-
-    tokenizer = AutoTokenizer.from_pretrained(model_id,device_map=device,torch_dtype=torch.bfloat16)                                         
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map=device, torch_dtype=torch.bfloat16)
+        
+    tokenizer = AutoTokenizer.from_pretrained(model_id,device_map='auto',torch_dtype=torch.bfloat16)                                         
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map='auto', torch_dtype=torch.bfloat16)
     print("LOADED PRETRAINED MODEL AND TOKENIZER")
 
     # Load the Lora adapter to base model.
@@ -94,13 +94,11 @@ def load_model_tokenizer(model_id, pathPeftModel=None):
     print("CONNECTED LORA ADAPATERS.")
     return model, tokenizer
 
-
 def load_prepare_data(data_path):
     if os.path.exists(path=data_path):
         data = load_from_disk(data_path)
     else:
         raise"Data does not exits!"
-    
     return data['test']
 
 def custom_collate_fn(batch):
@@ -156,13 +154,8 @@ if __name__ == "__main__":
         raise Exception("Only nrk dataset supported")
 
 
-    print(torch.cuda.mem_get_info())
-    print(torch.cuda.memory_allocated())
-
     data_loader = DataLoader(dataset=data_eval, batch_size=args.batch_size, collate_fn=custom_collate_fn)
-    
     loss_fn = nn.CrossEntropyLoss()
-
 
     pbar = tqdm(data_loader, desc="Evaluation")
     running_eval_loss =0
