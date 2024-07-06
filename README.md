@@ -1,9 +1,8 @@
 # Finetuning and Parallelism 
 
-Recent studies have shown large model training are beneficial for model quality. Training these are not necessarily straight forward, however there exists tools and frameworks to simplify this, enabling training of models such as Megatron-2 with one trillion parameters, with limiting computing capacity
+Training large lanugage models are not necessarily straight forward, however there exists tools and frameworks to simplify this, enabling training of models such as Megatron-2 with one trillion parameters, with limiting computing capacity.
 
-This file gives an introduction to different paralleism techniques. 
-
+This file gives an introduction to different parallelism techniques. 
 
 ## Data Parallelism
 
@@ -21,6 +20,7 @@ Tensor parallelism is to parallelize computation within an operation such as mat
 
 
 ### Tensor Parallelism (intra layer parallelism)
+---
 
 Split a tensor into ```N``` chunks, where each device holds ```1/N``` of the whole tensor without affecting correctness of computation graph. 
 
@@ -29,6 +29,7 @@ Split a tensor into ```N``` chunks, where each device holds ```1/N``` of the who
 Figure shows tensor parallelism by the coloumns, ```B``` split between different devices. 
 
 ### Pipeline Parallelism (inter layer parallelism)
+---
 
 Model split by layer into several chunks, each chunk is given to a device. Intermediate activations passed to the next (forward pass) or previous (backward pass) layer. 
 
@@ -37,27 +38,25 @@ Model split by layer into several chunks, each chunk is given to a device. Inter
 One draw back of pipline parallel training is waste of compitational resources as devices needs to wait on previous. 
 
 ### ZeRO - DeepSpeed 
-ZERO (zero redundancy optimizer), DeepSpeed a technique created by Microsoft. 
-
+---
+ZERO (zero redundancy optimizer) by DeepSpeed a technique created by Microsoft. 
 
 Sharding (partioning) a model’s parameters, gradients and optimizer states across data parallel workers (gpus/tpus). 
 
-
-
-Introduction of the Zero Redundancy Optimizer (ZERO). ZERO has 3 stages:
+ZERO has 3 stages:
 
 1. Optimizer states are partitioned across processes.
 2. Gradients are partitioned across processes.
 3. Model parameters are partitioned across the processes.
 
-As CPU has much larger memory compared to GPU, the main idea is to offlad tensors back to CPU memory or disk when they are not used. 
-Possible to accomodate huge models on a single machine. 
+Users can decide between which one to use. 
 
-Also optionally offload the sharded model parameters to CPUs
+ZERO makes it also possible to offload the sharded model parameters to CPUs or disk, as has much larger memory compared to GPU. Tensors offlad to CPU memory or disk when they are not used. Enables the possiblity to accomodate huge models on a single machine. 
 
 https://arxiv.org/abs/1910.02054
 
 ### FSDP 
+---
 
 Fully-sharded data-parallel (FSDP) is Meta’s version of sharding, inspired by DeepSpeed (stage 3).
 

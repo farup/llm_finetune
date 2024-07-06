@@ -2,7 +2,7 @@
 
 
 def format_input_eval(sample): 
-   #sample['prediction'] = f'Vennligst lag et sammendrag av artikkelen:\n{sample["bodyPlain"]}\n\nSammendrag:\n{sample["lead"]}'
+   sample['prediction'] = f'Vennligst lag et sammendrag av artikkelen:\n{sample["bodyPlain"]}\n\nSammendrag:\n{sample["lead"]}'
    sample['eval'] = f'Vennligst lag et sammendrag av artikkelen:\n{sample["bodyPlain"]}\n\nSammendrag:'
    return sample
 
