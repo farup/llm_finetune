@@ -21,7 +21,7 @@ from peft import LoraConfig, get_peft_model
 
 sys.path.append("/cluster/home/terjenf/norwAI_All/finetune")
 
-from util.nrk_data.train_preprocess_data import format_tokenize_data
+from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval
 
 load_dotenv()
 os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
@@ -79,8 +79,8 @@ def freeze_pretrained(model):
 class CastOutputToFloat(nn.Sequential):
   def forward(self, x): return super().forward(x).to(torch.float16)
 
-def get_peft_model(model, config):
-    config = LoraConfig(
+def setup_peft_model(model, config):
+    lora_config = LoraConfig(
     r=config['rank'], #attention heads, rank of the attention matrix, i think
     lora_alpha= config['lora_alpha'], #alpha scaling, scaling factor for the weight matrices
     # target_modules=["q_proj", "v_proj"], #will be set after i know the names
@@ -88,8 +88,7 @@ def get_peft_model(model, config):
     bias="none",
     task_type="CAUSAL_LM" # set this for CLM or Seq2Seq
     )
-
-    model = get_peft_model(model, config)
+    model = get_peft_model(model, lora_config)
     return model
 
 if __name__ == "__main__":
@@ -121,38 +120,46 @@ if __name__ == "__main__":
         )
 
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
-    eval_data, train_data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
+    data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
+
+    if isinstance(config['data'].get("dataset_size"), int): 
+        data = data.select(range(config['data'].get("dataset_size")))
+        
+    train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
+    eval_data = tokenize_format_eval(eval_data, tokenizer)
 
     freeze_pretrained(model)
     model.lm_head = CastOutputToFloat(model.lm_head)
 
-    if isinstance(config['data'].get("dataset_size"), int): 
-        eval_data = eval_data.select(range(config['data'].get("dataset_size")))
-        train_data = train_data.select(range(config['data'].get("dataset_size")))
+    checkpoint_output_dir = os.path.join(config.get("output_dir"), "checkpoints", run_name)
+    peft_model_output_dir = os.path.join(config.get("output_dir"), "final", run_name)
 
-    checkpoint_output_dir = os.path.join(config['data'].get("output_dir"), "checkpoints", run_name)
-    peft_model_output_dir = os.path.join(config['data'].get("output_dir"), "final", run_name)
-
-    peft_model = get_peft_model(model, config)
+    peft_model = setup_peft_model(model, config['lora_parameters'])
 
     peft_model.print_trainable_parameters()
+    train_parms,total_parms = peft_model.get_nb_trainable_parameters()
+
+    if args.track: 
+        wandb.log({"trainable params":train_parms, "all params": total_parms, "trainable%": round(int(train_parms)/int(total_parms), 4)})
+
+    config_parm = config['parameters']
     
     trainer = transformers.Trainer(
             model = peft_model, 
             tokenizer=tokenizer,
             train_dataset=train_data,
             args=transformers.TrainingArguments(
-                per_device_train_batch_size=config["batch_size"], 
-                gradient_accumulation_steps=config['gradient_accum_steps'],
+                per_device_train_batch_size=config_parm["batch_size"], 
+                gradient_accumulation_steps=config_parm['gradient_accumulation_steps'],
                 evaluation_strategy='steps',
-                eval_steps=config['eval_steps'],
-                num_train_epochs=config["epochs"],
-                warmup_steps=config['warmup_steps'], 
-                learning_rate= config["lr"],
-                fp16=config["fp16"],
-                logging_steps=config['logging_steps'],
+                eval_steps=config_parm['eval_steps'],
+                num_train_epochs=config_parm["epochs"],
+                warmup_steps=config_parm['warmup_steps'], 
+                learning_rate= config_parm["lr"],
+                fp16=config_parm["fp16"],
+                logging_steps=config_parm['logging_steps'],
                 output_dir=checkpoint_output_dir,
-                gradient_checkpointing=config["gradient_checkpointing"],
+                gradient_checkpointing=config_parm["gradient_checkpointing"],
                 report_to='wandb' if args.track else 'none',
             ),
             data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
@@ -161,6 +168,6 @@ if __name__ == "__main__":
 
     peft_model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     print("STARTING TRAINING:...")
-    result = trainer.train()
+    trainer.train()
     trainer.model.save_pretrained(peft_model_output_dir)
     print("Done!")

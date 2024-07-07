@@ -25,6 +25,29 @@ def tokenize_format_eval(data_eval, tokenizer):
    data_eval = data_eval.add_column('eval_mask', eval_col['attention_mask'])
    return data_eval
 
+
+def split_data(data, model_id, config): 
+
+    test_size = config.get("test_size")
+    stratify = config.get("stratify")
+    model_id = model_id.split("/")[-1]
+    processed_dataset_path = os.path.join(config.get("dataset_path_out"), model_id)
+    
+    print("CREATING TEST SPLIT ...")
+    try:
+        data = load_from_disk(processed_dataset_path)
+    except FileNotFoundError as e:
+        print("Error", e) 
+    if stratify:
+        data = data.class_encode_column("category")
+        data = data.train_test_split(test_size=test_size, stratify_by_column='category')
+    else: 
+        data = data.train_test_split(test_size=test_size)
+    data = data.remove_columns(["category"])
+
+    return data['train'], data['test']
+
+
 def format_tokenize_data(tokenizer, model_id, config):
     """
     Returns tokenized if exits, otherwise format,split, and tokenize data. 
@@ -33,48 +56,30 @@ def format_tokenize_data(tokenizer, model_id, config):
 
     dataset_path = config.get("input_data_processed_path")
     dataset_path_out = os.path.join(config.get("dataset_path_out"), model_id)
-    test_size= config.get("test_size")
-    stratify= config.get("stratify") 
     
     if not os.path.exists(dataset_path_out):
-        os.makdirs(dataset_path_out)
+        os.makedirs(dataset_path_out)
     
     if os.listdir(dataset_path_out):
         try: 
             data = load_from_disk(dataset_path_out)
-            return data['test'], data['train']
+            return data 
         except FileNotFoundError as e: 
             print("Error while loading file", e) 
     
     try:
         data = load_from_disk(dataset_path)
+        data = data.select(range(2000))
     except FileNotFoundError as e:
         print("Error", e) 
         
-    
-    print("CREATING TEST SPLIT ...")
-    data = data.class_encode_column("category")
-    if stratify:
-        data = data.train_test_split(test_size=test_size, stratify_by_column='category')
-    else: 
-        data = data.train_test_split(test_size=test_size)
-    
-    data = data.remove_columns(["category"])
-
-    train_data = data['train']
-    eval_data = data['test']
-
-    train_data = train_data.map(format_input)
-    train_data = train_data.map(lambda samples: tokenizer(samples['prediction'], padding=True, truncation=True, max_length=tokenizer.model_max_length), batched=True)
-
-    eval_data = tokenize_format_eval(eval_data)
-   
-    eval_data = eval_data.remove_columns(["prediction", "__index_level_0__"])
-    train_data = train_data.remove_columns(["prediction","bodyPlain", "__index_level_0__"])
-
-    data = DatasetDict({'train': train_data, 'test': eval_data}) 
+    data = data.map(format_input)
+    data = data.map(lambda samples: tokenizer(samples['prediction'], padding=True, truncation=True, max_length=tokenizer.model_max_length), batched=True)
+  
+    data = data.remove_columns(["prediction", "__index_level_0__"])
     data.save_to_disk(dataset_path_out)
 
-    return eval_data, train_data
+    return data
+
 
 
