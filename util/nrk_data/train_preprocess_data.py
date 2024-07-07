@@ -25,13 +25,26 @@ def tokenize_format_eval(data_eval, tokenizer):
    data_eval = data_eval.add_column('eval_mask', eval_col['attention_mask'])
    return data_eval
 
-def format_tokenize_data(tokenizer, dataset_path, dataset_path_out, test_size=0.2, stratify=False):
+def format_tokenize_data(tokenizer, model_id, config):
     """
     Returns tokenized if exits, otherwise format,split, and tokenize data. 
     """
+    model_id = model_id.split("/")[-1]
 
-    if os.path.exists(dataset_path_out):
-        return load_from_disk(dataset_path_out)
+    dataset_path = config.get("input_data_processed_path")
+    dataset_path_out = os.path.join(config.get("dataset_path_out"), model_id)
+    test_size= config.get("test_size")
+    stratify= config.get("stratify") 
+    
+    if not os.path.exists(dataset_path_out):
+        os.makdirs(dataset_path_out)
+    
+    if os.listdir(dataset_path_out):
+        try: 
+            data = load_from_disk(dataset_path_out)
+            return data['test'], data['train']
+        except FileNotFoundError as e: 
+            print("Error while loading file", e) 
     
     try:
         data = load_from_disk(dataset_path)
@@ -62,6 +75,6 @@ def format_tokenize_data(tokenizer, dataset_path, dataset_path_out, test_size=0.
     data = DatasetDict({'train': train_data, 'test': eval_data}) 
     data.save_to_disk(dataset_path_out)
 
-    return data
+    return eval_data, train_data
 
 

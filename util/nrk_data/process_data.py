@@ -44,23 +44,29 @@ def remove_rows_empty_string(df):
     return df
 
 def preprocess_data(dataset_path, dataset_path_out):
-    """ Reads data to pandas dataframe.
+    """ 
+    Reads data to pandas dataframe.
     Removes rows with empty strings 
     """
 
-    if not os.path.exists(dataset_path_out): 
-        df = pd.read_json(dataset_path, lines=True)
-        df = remove_rows_empty_string(df)
-
-        df['category'] = df.apply(lambda x: determine_label(x['wordCount']), axis=1)
-        df = df[['lead', 'bodyPlain', 'category']]
-        data = datasets.Dataset.from_pandas(df)
-        data.save_to_disk(dataset_path_out)
-
+    if os.path.exists(dataset_path_out) and len(os.listdir(dataset_path_out)) >= 1: 
+        return 
     
+    if not os.path.exists(dataset_path_out):
+        os.makedirs(dataset_path_out)
+
+    df = pd.read_json(dataset_path, lines=True)
+    df = remove_rows_empty_string(df)
+
+    df['category'] = df.apply(lambda x: determine_label(x['wordCount']), axis=1)
+    df = df[['lead', 'bodyPlain', 'category']]
+    data = datasets.Dataset.from_pandas(df)
+    data.save_to_disk(dataset_path_out)
+    print("Done!")
+
 
 if __name__ == "__main__":
 
-    dataset_path = ""
-    data
+    dataset_path = '/cluster/home/terjenf/norwAI_All/NorGLMFinetune2/dataset/nrk-articles.jsonl'
+    dataset_path_out = "/cluster/home/terjenf/norwAI_All/finetune/data/processed"
     preprocess_data(dataset_path, dataset_path_out)
