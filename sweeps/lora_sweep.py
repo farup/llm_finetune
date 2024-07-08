@@ -21,10 +21,11 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, EvalPrediction
 from peft import LoraConfig, get_peft_model 
 import wandb
 
-sys.path.append("/cluster/home/terjenf/norwAI_All/finetune")
+sys.path.append("/cluster/home/terjenf/norwAI_All/llm_training")
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(i) for i in range(torch.cuda.device_count()))
 
 from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval
+#from llm_training.util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval
 
 load_dotenv()
 os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
@@ -97,7 +98,7 @@ def setup_peft_model(model, config):
     return model
 
 
-def train(model, tokenizer, run_name):
+def train(model, tokenizer,train_data, eval_data, run_name, checkpoint_output_dir, peft_model_output_dir):
     with wandb.init(project=run_name):
 
         config = wandb.config
@@ -116,7 +117,7 @@ def train(model, tokenizer, run_name):
                     per_device_train_batch_size=config["batch_size"], 
                     gradient_accumulation_steps=config['gradient_accumulation_steps'],
                     save_strategy="no",
-                    evaluation_strategy='steps',
+                    eval_strategy='steps',
                     eval_steps=config['eval_steps'],
                     num_train_epochs=config["epochs"],
                     warmup_steps=config['warmup_steps'], 
@@ -127,7 +128,7 @@ def train(model, tokenizer, run_name):
                     save_total_limit=5,
                     save_steps=0.1,
                     gradient_checkpointing=config["gradient_checkpointing"],
-                    report_to='wandb' if args.track else 'none',
+                    report_to='wandb',
                 ),
                 data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
                 eval_dataset=eval_data
@@ -180,7 +181,7 @@ if __name__ == "__main__":
     peft_model_output_dir = os.path.join(config.get("output_dir"), "final", run_name)
 
     sweep_id = wandb.sweep(sweep=sweep_config, project=run_name) #  wind up a Sweep Controller by calling
-    wandb_train = partial(model, tokenizer, run_name)
+    wandb_train = partial(train, model, tokenizer,train_data, eval_data, run_name, checkpoint_output_dir, peft_model_output_dir)
     wandb.agent(sweep_id=sweep_id, function=wandb_train, count=args.num_sweep)
 
 
