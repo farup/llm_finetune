@@ -69,7 +69,6 @@ def format_tokenize_data(tokenizer, model_id, config):
     
     try:
         data = load_from_disk(dataset_path)
-        data = data.select(range(2000))
     except FileNotFoundError as e:
         print("Error", e) 
         

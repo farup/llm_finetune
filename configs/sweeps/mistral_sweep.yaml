@@ -13,14 +13,14 @@ parameters:
   rank:
     values: [16, 32]
   lora_alpha: 
-    values: [32]
+    values: [16, 32]
   lora_dropout:
     values: [0.05]
   
   logging_steps:
     value: 1
   eval_steps:
-    value: 0.1
+    value: 0.2
   gradient_checkpointing:
     value: True
   fp16: 
