@@ -1,0 +1,32 @@
+name: sweep
+method: grid
+metric:
+  goal: minimize
+  name: eval/loss
+parameters:
+  lr:
+    values: [0.0001, 0.00001]
+  batch_size:
+    values: [4, 8, 16]
+  epochs:
+    values: [1] 
+  rank:
+    values: [16, 32]
+  lora_alpha: 
+    values: [32]
+  lora_dropout:
+    values: [0.05]
+  
+  logging_steps:
+    value: 1
+  eval_steps:
+    value: 0.1
+  gradient_checkpointing:
+    value: True
+  fp16: 
+    value: True
+  warmup_steps: 
+    value: 100
+  gradient_accumulation_steps: 
+    value: 2
+

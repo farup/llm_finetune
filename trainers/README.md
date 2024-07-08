@@ -32,6 +32,13 @@ Bfloat16 not supported on V100?
 https://github.com/salesforce/LAVIS/issues/91
 
 
+## Training options and quantization 
+
+- Facing problems loading model in in BFloat16 and using mixed precision. Might be solved be setting up mixed precision with accelerate config. 
+- Working with loading model in fp32 and using mixed precision "fp16=True"
+
+
+
 ## Parameter efficient fine-tuning (PEFT)
 
 A method that aims to reduce the size of models making it possible to perform calculations on less powerful GPUs
