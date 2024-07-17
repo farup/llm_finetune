@@ -1,5 +1,5 @@
 name: sweep
-method: grid
+method: random
 metric:
   goal: minimize
   name: eval/loss
@@ -29,4 +29,3 @@ parameters:
     value: 100
   gradient_accumulation_steps: 
     value: 2
-

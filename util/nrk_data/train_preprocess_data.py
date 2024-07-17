@@ -33,11 +33,11 @@ def split_data(data, model_id, config):
     model_id = model_id.split("/")[-1]
     processed_dataset_path = os.path.join(config.get("dataset_path_out"), model_id)
     
-    print("CREATING TEST SPLIT ...")
-    try:
-        data = load_from_disk(processed_dataset_path)
-    except FileNotFoundError as e:
-        print("Error", e) 
+    # print("CREATING TEST SPLIT ...")
+    # try:
+    #     data = load_from_disk(processed_dataset_path)
+    # except FileNotFoundError as e:
+    #     print("Error", e) 
     if stratify:
         data = data.class_encode_column("category")
         data = data.train_test_split(test_size=test_size, stratify_by_column='category')
@@ -48,7 +48,7 @@ def split_data(data, model_id, config):
     return data['train'], data['test']
 
 
-def format_tokenize_data(tokenizer, model_id, config):
+def format_tokenize_data(tokenizer, model_id, config, data_size=None):
     """
     Returns tokenized if exits, otherwise format,split, and tokenize data. 
     """
@@ -71,6 +71,9 @@ def format_tokenize_data(tokenizer, model_id, config):
         data = load_from_disk(dataset_path)
     except FileNotFoundError as e:
         print("Error", e) 
+
+    if data_size is not None: 
+        data = data.select(range(data_size))
         
     data = data.map(format_input)
     data = data.map(lambda samples: tokenizer(samples['prediction'], padding=True, truncation=True, max_length=tokenizer.model_max_length), batched=True)

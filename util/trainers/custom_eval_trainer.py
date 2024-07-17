@@ -17,13 +17,33 @@ import evaluate
 
 class CustomEvalTrainer(Trainer): 
 
-
     def __init__(self, *args, **kwargs): 
         super(CustomEvalTrainer, self).__init__(*args, **kwargs)
 
-        self.text_table= wandb.Table(columns=["Mode", "Eval Prompt", "Eval Generated", "Eval Ground Truth", "Bleu (%)", "RougeL (%)"])
-       
+        self.text_table= wandb.Table(columns=["Mode","Global Update Step", "Eval Prompt", "Eval Generated", "Eval Ground Truth", "Bleu (%)", "RougeL (%)"])
+    
+
+    def custom_collate_fn(self, batch):
+        # Extract input_ids and labels from the batch
+        
+        eval_ids = torch.stack([torch.tensor(item['eval_ids']) for item in batch], dim=0)
+        eval_mask = torch.stack([torch.tensor(item['eval_mask']) for item in batch], dim=0)
+
+        bodyPlain = [item['bodyPlain'] for item in batch]
+        eval = [item['eval'] for item in batch]
+        lead = [item['lead'] for item in batch]
+        
+        return {
+            'input_ids': eval_ids,
+            'attention_mask': eval_mask,
+            'eval': eval, 
+            'lead': lead,
+        }
+
+
     def evaluate(self, eval_dataset= None, ignore_keys = None, metric_key_prefix = "eval"):
+        print("hei")
+
         bleu = evaluate.load("sacrebleu")
         rouge = evaluate.load("rouge")
 
@@ -43,7 +63,7 @@ class CustomEvalTrainer(Trainer):
             output = super().evaluate(eval_dataset=self.eval_dataset.select_columns(['input_ids', 'attention_mask']), ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
 
 
-        eval_loader = DataLoader(dataset=self.eval_dataset, batch_size=self.args.eval_batch_size)
+        eval_loader = DataLoader(dataset=self.eval_dataset, batch_size=self.args.eval_batch_size, collate_fn=self.custom_collate_fn)
 
         pbar = tqdm(eval_loader, desc="Bleu and Rouge Evaluation")
    
@@ -57,9 +77,9 @@ class CustomEvalTrainer(Trainer):
                     start_time = time.time()
                     print("Start time", start_time)
                     if mode == "greedy":
-                        tokens = self.model.generate(input_ids=batch['eval_ids'], attention_mask=batch['eval_mask'].to(device), max_new_tokens=50, do_sample=False)
+                        tokens = self.model.generate(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], max_new_tokens=50, do_sample=False)
                     else: 
-                        tokens = self.model.generate(input_ids=batch['eval_ids'], attention_mask=batch['eval_mask'].to(device), max_new_tokens=50, num_beams=3, early_stopping=True)
+                        tokens = self.model.generate(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], max_new_tokens=50, num_beams=3, early_stopping=True)
 
                     generate_time = time.time() - start_time
                     print("Generated time", generate_time)
@@ -72,7 +92,7 @@ class CustomEvalTrainer(Trainer):
                         print([batch['lead'][i]])
                         bleu_scores = bleu.compute(predictions=[decoded[i]], references=[batch['lead'][i]])
                         rouge_scores = rouge.compute(predictions=[decoded[i]], references=[batch['lead'][i]])
-                        self.text_table.add_data(mode, batch['eval'][i], decoded[i], batch['lead'][i], round(bleu_scores.get("score"),4), round(rouge_scores.get("rougeL"),4))
+                        self.text_table.add_data(mode, self.state.global_step, batch['eval'][i], decoded[i], batch['lead'][i], round(bleu_scores.get("score"),4), round(rouge_scores.get("rougeL"),4))
                     
                 
                     new_table = wandb.Table(
@@ -103,8 +123,8 @@ class CustomEvalTrainer(Trainer):
             #perplexity_res_b = perplexity_beam.compute(model_id=args.model_id)
 
             #wandb.log({'eval/loss': output})
-            wandb.log({'bleau_greedy': bleu_res_g, 'rouge_greedy': rouge_res_g})
-            wandb.log({'bleau_beam': bleu_res_b, 'rouge_beam': rouge_res_b})
+            wandb.log({'bleau_greedy': round(bleu_res_g.get('score'),4), 'rouge_L_greedy': round(rouge_res_g.get('rougeL'),4)})
+            wandb.log({'bleau_beam': round(bleu_res_b.get('score'),4), 'rouge_L_beam': round(rouge_res_b.get('rougeL'),4)})
             return output
         
             # wandb.log({'bleau_greedy': bleu_res_g, 'rouge_greedy': rouge_res_g, 'perplexity_greedy': perplexity_res_g})

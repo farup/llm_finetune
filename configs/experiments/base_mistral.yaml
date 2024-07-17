@@ -1,0 +1,5 @@
+
+parameters:
+  logging_steps: 1
+  eval_steps: 0.1
+  gradient_checkpointing: True

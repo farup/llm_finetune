@@ -7,8 +7,8 @@
 #SBATCH --gres=gpu:2
 #SBATCH --constraint="gpu80g"
 #SBATCH --mem=70G
-#SBATCH --job-name="Sweep NorMistral7B"
-#SBATCH --output=/cluster/home/terjenf/norwAI_All/llm_training/sweeps/jobs/slurm_outputs/sweep_mistral7b.out
+#SBATCH --job-name="Sweep NorLlama7B"
+#SBATCH --output=/cluster/home/terjenf/norwAI_All/llm_training/sweeps/jobs/slurm_outputs/sweep_llama7b.out
 #SBATCH --mail-user=terjenf@stud.ntnu.no
 #SBATCH --mail-type=ALL
 
@@ -23,4 +23,4 @@ module load  Anaconda3/2023.09-0
 
 conda activate vgdebatt
 
-python /cluster/home/terjenf/norwAI_All/llm_training/sweeps/lora_sweep.py --exp-config-path /cluster/home/terjenf/norwAI_All/llm_training/configs/data/nrk_data_mistral.yaml --sweep-yaml-path /cluster/home/terjenf/norwAI_All/llm_training/configs/sweeps/mistral_sweep.yaml --num-sweep 8
+python /cluster/home/terjenf/norwAI_All/llm_training/sweeps/lora_sweep.py --exp-config-path /cluster/home/terjenf/norwAI_All/llm_training/configs/data/nrk_data_llama.yaml --sweep-yaml-path /cluster/home/terjenf/norwAI_All/llm_training/configs/sweeps/mistral_sweep.yaml --num-sweep 8

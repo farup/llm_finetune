@@ -1,0 +1,28 @@
+model_id: "NorLLM-AI/NorLLama2-7B"
+output_dir: "./results"
+
+data:
+  input_data_processed_path: "/cluster/home/terjenf/norwAI_All/llm_training/data/processed"
+  dataset_path_out: "/cluster/home/terjenf/norwAI_All/llm_training/data/tokenized"
+  test_size: 0.2
+  stratify: False
+  dataset_size: 5000 # int or "full"
+
+lora_parameters:
+  rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+parameters:
+  lr: 0.0001 #1e-4
+  batch_size: 4
+  epochs: 1
+  gradient_accumulation_steps: 2
+  warmup_steps: 100
+  fp16: True
+  logging_steps: 1
+  eval_steps: 0.2
+  gradient_checkpointing: True
+
+
+

@@ -17,7 +17,7 @@ import torch.nn as nn
 import evaluate
 import wandb
 import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM, EvalPrediction
+from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaForCausalLM, LlamaTokenizer
 from peft import LoraConfig, get_peft_model 
 import wandb
 
@@ -65,10 +65,15 @@ def parse_args():
     return args
 
 def load_model_tokenizer(model_id):
-    tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
-    tokenizer.pad_token = tokenizer.eos_token
+    if "llama" in model_id.lower(): 
+        tokenizer = LlamaTokenizer.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
+        model = LlamaForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
 
+    else: 
+        tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
+        model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
+
+    tokenizer.pad_token = tokenizer.eos_token
     model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
@@ -107,6 +112,8 @@ def train(model, tokenizer,train_data, eval_data, run_name, checkpoint_output_di
  
         train_parms,total_parms = peft_model.get_nb_trainable_parameters()
 
+        wandb.log({"train data-size": len(train_data)})
+        wandb.log({"eval data-size": len(eval_data)})
         wandb.log({"trainable params":train_parms, "all params": total_parms, "trainable%": round(int(train_parms)/int(total_parms), 4)})
     
         trainer = transformers.Trainer(
@@ -167,9 +174,12 @@ if __name__ == "__main__":
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
     data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
 
-    if isinstance(config['data'].get("dataset_size"), int): 
-        data = data.select(range(config['data'].get("dataset_size")))
-        
+    # if config['data'].get("dataset_size") is not None:
+    #     size = config['data'].get("dataset_size") 
+    #     if isinstance(int(size), int):
+    #         data = data.select(range(int(config['data'].get("dataset_size"))))
+    data = data.select(range(5000))
+ 
     train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
     eval_data = tokenize_format_eval(eval_data, tokenizer)
 

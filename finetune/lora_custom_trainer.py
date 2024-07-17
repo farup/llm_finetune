@@ -121,9 +121,9 @@ if __name__ == "__main__":
         )
 
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
-    data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
+    data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"), data_size=config.get('data')['dataset_size'])
 
-    if isinstance(config['data'].get("dataset_size"), int): 
+    if isinstance(int(config['data'].get("dataset_size")), int): 
         data = data.select(range(config['data'].get("dataset_size")))
         
     train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
@@ -161,6 +161,7 @@ if __name__ == "__main__":
                 logging_steps=config_parm['logging_steps'],
                 output_dir=checkpoint_output_dir,
                 save_total_limit=5,
+                save_strategy="no",
                 save_steps=0.01,
                 gradient_checkpointing=config_parm["gradient_checkpointing"],
                 report_to='wandb' if args.track else 'none',
