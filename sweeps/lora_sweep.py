@@ -161,11 +161,9 @@ if __name__ == "__main__":
     except FileNotFoundError as e: 
         print("Error while loading yaml config",  e)
 
-
     try:
         with open(args.sweep_yaml_path, 'r') as file:
-            sweep_config = yaml.safe_load(file)
-            
+            sweep_config = yaml.safe_load(file)     
     except FileNotFoundError as e: 
         print("Error while loading yaml config",  e)
 
@@ -174,11 +172,11 @@ if __name__ == "__main__":
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
     data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
 
-    # if config['data'].get("dataset_size") is not None:
-    #     size = config['data'].get("dataset_size") 
-    #     if isinstance(int(size), int):
-    #         data = data.select(range(int(config['data'].get("dataset_size"))))
-    data = data.select(range(5000))
+    if config['data'].get("dataset_size") is not None:
+        size = config['data'].get("dataset_size") 
+        if isinstance(int(size), int):
+            data = data.select(range(int(size)))
+    #data = data.select(range(5000))
  
     train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
     eval_data = tokenize_format_eval(eval_data, tokenizer)

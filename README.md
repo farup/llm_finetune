@@ -1,8 +1,6 @@
 # Finetuning and Parallelism 
 
-Training large lanugage models are not necessarily straight forward, however there exists tools and frameworks to simplify this, enabling training of models such as Megatron-2 with one trillion parameters, with limiting computing capacity.
-
-This file gives an introduction to different parallelism techniques. 
+This file gives an introduction to different parallelism techniques, enabling training or large models with limiting computing capacity
 
 ## Data Parallelism
 

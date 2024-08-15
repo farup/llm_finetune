@@ -10,19 +10,17 @@ from pynvml import *
 from dotenv import load_dotenv
 from distutils.util import strtobool
 
-from accelerate import Accelerator
 import torch
 import torch.nn as nn
-import evaluate
 import wandb
 import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM, EvalPrediction
+from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaForCausalLM, LlamaTokenizer
 from peft import LoraConfig, get_peft_model 
 
 sys.path.append("/cluster/home/terjenf/norwAI_All/llm_training")
 
 from util.trainers.custom_eval_trainer import CustomEvalTrainer
-from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval
+from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval, find_train_eval_split, load_train_eval_split, save_train_eval_split
 
 load_dotenv()
 os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
@@ -35,9 +33,6 @@ logger = logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
-
-bleu = evaluate.load("sacrebleu")
-rouge = evaluate.load('rouge')
 
 def parse_args(): 
     parser = argparse.ArgumentParser()
@@ -59,11 +54,18 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def load_model_tokenizer(model_id):
-    tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
-    tokenizer.pad_token = tokenizer.eos_token
+def load_model_tokenizer(model_id, torch_dtype):
 
+    torch_dtype = eval(torch_dtype)
+    if "llama" in model_id.lower(): 
+        tokenizer = LlamaTokenizer.from_pretrained(model_id, device_map="auto")
+        model = LlamaForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch_dtype)
+
+    else: 
+        tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch_dtype)
+
+    tokenizer.pad_token = tokenizer.eos_token
     model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
@@ -120,14 +122,25 @@ if __name__ == "__main__":
             save_code=True, 
         )
 
-    model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
+    model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"), torch_dtype=config.get("torch_dtype"))
     data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"), data_size=config.get('data')['dataset_size'])
 
-    if isinstance(int(config['data'].get("dataset_size")), int): 
-        data = data.select(range(config['data'].get("dataset_size")))
-        
-    train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
-    eval_data = tokenize_format_eval(eval_data, tokenizer)
+
+
+
+    if not find_train_eval_split(config.get("model_id"), config.get("data")): 
+        train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
+        eval_data = tokenize_format_eval(eval_data, tokenizer)
+        save_train_eval_split(train_data, eval_data, config.get("model_id"), config.get("data"))
+
+    else:
+        train_data, eval_data = load_train_eval_split(config.get("model_id"), config.get("data"))
+
+    if config['data'].get("dataset_size") is not None:
+        data_size = config['data'].get("dataset_size")
+        if data_size != "full":
+            train_data = train_data.select(range(int(int(data_size)*0.8)))
+            eval_data = eval_data.select(range(int(int(data_size)*0.2)))
 
     freeze_pretrained(model)
     model.lm_head = CastOutputToFloat(model.lm_head)
@@ -157,12 +170,13 @@ if __name__ == "__main__":
                 num_train_epochs=config_parm["epochs"],
                 warmup_steps=config_parm['warmup_steps'], 
                 learning_rate= config_parm["lr"],
+                bf16=config_parm["bf16"],
                 fp16=config_parm["fp16"],
                 logging_steps=config_parm['logging_steps'],
                 output_dir=checkpoint_output_dir,
                 save_total_limit=5,
-                save_strategy="no",
-                save_steps=0.01,
+                save_strategy="steps",
+                save_steps=0.05,
                 gradient_checkpointing=config_parm["gradient_checkpointing"],
                 report_to='wandb' if args.track else 'none',
             ),

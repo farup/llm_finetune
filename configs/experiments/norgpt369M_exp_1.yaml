@@ -1,5 +1,6 @@
 model_id: "NorGLM/NorGPT-369M"
 output_dir: "./results"
+torch_dtype: "torch.bfloat16" # torch.float32
 
 data:
   input_data_processed_path: "/cluster/home/terjenf/norwAI_All/llm_training/data/processed"
@@ -19,6 +20,7 @@ parameters:
   epochs: 1
   gradient_accumulation_steps: 2
   warmup_steps: 100
+  bf16: True
   fp16: True
   logging_steps: 1
   eval_steps: 0.2

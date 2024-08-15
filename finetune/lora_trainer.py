@@ -19,9 +19,9 @@ import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM, EvalPrediction
 from peft import LoraConfig, get_peft_model 
 
-sys.path.append("/cluster/home/terjenf/norwAI_All/finetune")
+sys.path.append("/cluster/home/terjenf/norwAI_All/llm_training")
 
-from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval
+from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval, find_train_eval_split, load_train_eval_split, save_train_eval_split
 
 load_dotenv()
 os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
@@ -58,9 +58,11 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def load_model_tokenizer(model_id):
-    tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float32)
+def load_model_tokenizer(model_id, torch_dtype):
+
+    torch_dtype = eval(torch_dtype)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, device_map="auto")
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch_dtype)
     tokenizer.pad_token = tokenizer.eos_token
 
     model.resize_token_embeddings(len(tokenizer))
@@ -119,8 +121,22 @@ if __name__ == "__main__":
             save_code=True, 
         )
 
-    model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"))
+    model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"), torch_dtype=config.get("torch_dtype"))
     data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
+
+    if not find_train_eval_split(config.get("model_id"), config.get("data")): 
+        train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
+        eval_data = tokenize_format_eval(eval_data, tokenizer)
+        save_train_eval_split(train_data, eval_data, config.get("model_id"), config.get("data"))
+
+    else:
+        train_data, eval_data = load_train_eval_split(config.get("model_id"), config.get("data"))
+
+    if config['data'].get("dataset_size") is not None:
+        data_size = config['data'].get("dataset_size")
+        if data_size != "full":
+            train_data = train_data.select(range(int(int(data_size)*0.8)))
+            eval_data = eval_data.select(range(int(int(data_size)*0.2)))
 
     if isinstance(config['data'].get("dataset_size"), int): 
         data = data.select(range(config['data'].get("dataset_size")))
@@ -156,11 +172,12 @@ if __name__ == "__main__":
                 num_train_epochs=config_parm["epochs"],
                 warmup_steps=config_parm['warmup_steps'], 
                 learning_rate= config_parm["lr"],
+                bf16=config_parm["bf16"],
                 fp16=config_parm["fp16"],
                 logging_steps=config_parm['logging_steps'],
                 output_dir=checkpoint_output_dir,
                 save_total_limit=5,
-                save_steps=0.1,
+                save_steps=0.01,
                 gradient_checkpointing=config_parm["gradient_checkpointing"],
                 report_to='wandb' if args.track else 'none',
             ),

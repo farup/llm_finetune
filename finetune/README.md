@@ -59,3 +59,19 @@ state_dict = get_fp32_state_dict_from_zero_checkpoint(pathPeftModel)
 ### Problems: 
 
 "_amp_foreach_non_finite_check_and_unscale_cuda" not implemented for 'BFloat16'
+
+
+
+Belive error while saving tokenizer in torch_dtype=torch.float32
+```
+  File "/cluster/home/terjenf/.conda/envs/vgdebatt/lib/python3.11/site-packages/transformers/trainer.py", line 3437, in _save
+    self.tokenizer.save_pretrained(output_dir)
+  File "/cluster/home/terjenf/.conda/envs/vgdebatt/lib/python3.11/site-packages/transformers/tokenization_utils_base.py", line 2511, in save_pretrained
+    out_str = json.dumps(tokenizer_config, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+        ^^^^^^^^^^^
+  File "/cluster/home/terjenf/.conda/envs/vgdebatt/lib/python3.11/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+
+```

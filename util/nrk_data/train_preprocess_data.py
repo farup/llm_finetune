@@ -25,7 +25,49 @@ def tokenize_format_eval(data_eval, tokenizer):
    data_eval = data_eval.add_column('eval_mask', eval_col['attention_mask'])
    return data_eval
 
+def load_train_eval_split(model_id, config):
 
+    model_id = model_id.split("/")[-1]
+
+    dataset_path_out = config.get("dataset_path_out")+"_train_eval_split"
+    dataset_path_out = os.path.join(dataset_path_out, model_id) 
+
+    if not os.path.exists(dataset_path_out):
+        os.makedirs(dataset_path_out)
+
+    if os.listdir(dataset_path_out):
+        try: 
+            data = load_from_disk(dataset_path_out)
+            return data['train'], data['test'] 
+        except FileNotFoundError as e: 
+            print("Error while loading file", e)
+
+
+def save_train_eval_split(train_data, eval_data, model_id, config):
+    model_id = model_id.split("/")[-1]
+
+    dataset_path_out = config.get("dataset_path_out")+"_train_eval_split"
+    dataset_path_out = os.path.join(dataset_path_out, model_id)
+
+    data = DatasetDict({'train': train_data, 'test': eval_data}) 
+    data.save_to_disk(dataset_path_out) 
+
+
+def find_train_eval_split(model_id, config):
+
+    model_id = model_id.split("/")[-1]
+
+    
+    dataset_path_out = config.get("dataset_path_out")+"_train_eval_split"
+    dataset_path_out = os.path.join(dataset_path_out, model_id) 
+
+    if not os.path.exists(dataset_path_out):
+        os.makedirs(dataset_path_out)
+
+    if os.listdir(dataset_path_out):
+        return True 
+    
+    
 def split_data(data, model_id, config): 
 
     test_size = config.get("test_size")
@@ -72,8 +114,9 @@ def format_tokenize_data(tokenizer, model_id, config, data_size=None):
     except FileNotFoundError as e:
         print("Error", e) 
 
-    if data_size is not None: 
-        data = data.select(range(data_size))
+    if data_size is not None:
+        if data_size != "full":
+            data = data.select(range(data_size))
         
     data = data.map(format_input)
     data = data.map(lambda samples: tokenizer(samples['prediction'], padding=True, truncation=True, max_length=tokenizer.model_max_length), batched=True)
