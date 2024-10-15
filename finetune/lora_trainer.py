@@ -83,9 +83,9 @@ class CastOutputToFloat(nn.Sequential):
 
 def setup_peft_model(model, config):
     lora_config = LoraConfig(
-    r=config['rank'], #attention heads, rank of the attention matrix, i think
+    r=config['rank'], #attention heads, rank of the attention matrix, 
     lora_alpha= config['lora_alpha'], #alpha scaling, scaling factor for the weight matrices
-    # target_modules=["q_proj", "v_proj"], #will be set after i know the names
+    # target_modules=["q_proj", "v_proj"],
     lora_dropout=config['lora_dropout'],
     bias="none",
     task_type="CAUSAL_LM" # set this for CLM or Seq2Seq

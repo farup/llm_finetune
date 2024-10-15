@@ -20,6 +20,7 @@ parameters:
   epochs: 1
   gradient_accumulation_steps: 2
   warmup_steps: 100
+  bf16: False
   fp16: True
   logging_steps: 1
   eval_steps: 0.2

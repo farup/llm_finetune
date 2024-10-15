@@ -58,9 +58,9 @@ class CustomEvalTrainer(Trainer):
         perplexity_beam = evaluate.load('perplexity')
 
 
-        self.model.eval()
-        with torch.no_grad():
-            output = super().evaluate(eval_dataset=self.eval_dataset.select_columns(['input_ids', 'attention_mask']), ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
+        # self.model.eval()
+        # with torch.no_grad():
+        #     output = super().evaluate(eval_dataset=self.eval_dataset.select_columns(['input_ids', 'attention_mask']), ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
 
 
         eval_loader = DataLoader(dataset=self.eval_dataset, batch_size=self.args.eval_batch_size, collate_fn=self.custom_collate_fn)
@@ -125,7 +125,7 @@ class CustomEvalTrainer(Trainer):
             #wandb.log({'eval/loss': output})
             wandb.log({'bleau_greedy': round(bleu_res_g.get('score'),4), 'rouge_L_greedy': round(rouge_res_g.get('rougeL'),4)})
             wandb.log({'bleau_beam': round(bleu_res_b.get('score'),4), 'rouge_L_beam': round(rouge_res_b.get('rougeL'),4)})
-            return output
+            return 0
         
             # wandb.log({'bleau_greedy': bleu_res_g, 'rouge_greedy': rouge_res_g, 'perplexity_greedy': perplexity_res_g})
             # wandb.log({'bleau_beam': bleu_res_b, 'rouge_beam': rouge_res_b, 'perplexity_beam': perplexity_res_b})

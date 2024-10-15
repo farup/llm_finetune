@@ -69,30 +69,6 @@ def load_model_tokenizer(model_id, torch_dtype):
     model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
-def freeze_pretrained(model):
-    for param in model.parameters():
-        param.requires_grad = False  # freeze the model - train adapters later
-        if param.ndim == 1:
-            # cast the small parameters (e.g. layernorm) to fp32 for stability
-            param.data = param.data.to(torch.float32)
-
-    model.gradient_checkpointing_enable()  # reduce number of stored activations
-    model.enable_input_require_grads()
-
-class CastOutputToFloat(nn.Sequential):
-  def forward(self, x): return super().forward(x).to(torch.float16)
-
-def setup_peft_model(model, config):
-    lora_config = LoraConfig(
-    r=config['rank'], #attention heads, rank of the attention matrix, i think
-    lora_alpha= config['lora_alpha'], #alpha scaling, scaling factor for the weight matrices
-    # target_modules=["q_proj", "v_proj"], #will be set after i know the names
-    lora_dropout=config['lora_dropout'],
-    bias="none",
-    task_type="CAUSAL_LM" # set this for CLM or Seq2Seq
-    )
-    model = get_peft_model(model, lora_config)
-    return model
 
 if __name__ == "__main__":
 
@@ -124,19 +100,10 @@ if __name__ == "__main__":
 
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"), torch_dtype=config.get("torch_dtype"))
     data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"), data_size=config.get('data')['dataset_size'])
-
-
-
-
-    if not find_train_eval_split(config.get("model_id"), config.get("data")): 
-        train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
-        eval_data = tokenize_format_eval(eval_data, tokenizer)
-        save_train_eval_split(train_data, eval_data, config.get("model_id"), config.get("data"))
-
-    else:
-        train_data, eval_data = load_train_eval_split(config.get("model_id"), config.get("data"))
-
     
+
+    train_data, eval_data = load_train_eval_split("NorLLM-AI/NorMistral-7B", config.get("data"))
+
 
     if config['data'].get("dataset_size") is not None:
         data_size = config['data'].get("dataset_size")
@@ -144,24 +111,15 @@ if __name__ == "__main__":
             train_data = train_data.select(range(int(int(data_size)*0.8)))
             eval_data = eval_data.select(range(int(int(data_size)*0.2)))
 
-    freeze_pretrained(model)
-    model.lm_head = CastOutputToFloat(model.lm_head)
-
     checkpoint_output_dir = os.path.join(config.get("output_dir"), "checkpoints", run_name)
     peft_model_output_dir = os.path.join(config.get("output_dir"), "final", run_name)
 
-    peft_model = setup_peft_model(model, config['lora_parameters'])
-    peft_model.print_trainable_parameters()
 
-    train_parms,total_parms = peft_model.get_nb_trainable_parameters()
-
-    if args.track: 
-        wandb.log({"trainable params":train_parms, "all params": total_parms, "trainable%": round(int(train_parms)/int(total_parms), 4)})
 
     config_parm = config['parameters']
     
     trainer = CustomEvalTrainer(
-            model = peft_model, 
+            model = model, 
             tokenizer=tokenizer,
             train_dataset=train_data,
             args=transformers.TrainingArguments(
@@ -186,8 +144,8 @@ if __name__ == "__main__":
             eval_dataset=eval_data
         )
 
-    peft_model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
-    print("STARTING TRAINING:...")
+    #peft_model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+    print("STARTING EVALUATING:...")
     trainer.evaluate()
     #trainer.model.save_pretrained(peft_model_output_dir)
     print("Done!")

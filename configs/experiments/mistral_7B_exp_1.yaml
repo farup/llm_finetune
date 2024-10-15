@@ -1,4 +1,4 @@
-model_id: "NorLLM-AI/NorMistral-7B"
+model_id: "/cluster/home/terjenf/norwAI_All/llm_training/merged_models/merged_mistral_7B_exp_1_1722629952"
 output_dir: "./results"
 torch_dtype: "torch.float32" # "torch.float32", "torch.bfloat16"
 
