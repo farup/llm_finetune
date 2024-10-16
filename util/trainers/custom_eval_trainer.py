@@ -42,12 +42,9 @@ class CustomEvalTrainer(Trainer):
 
 
     def evaluate(self, eval_dataset= None, ignore_keys = None, metric_key_prefix = "eval"):
-        print("hei")
-
+       
         bleu = evaluate.load("sacrebleu")
         rouge = evaluate.load("rouge")
-
-        print(self.state.global_step)
 
         bleu_greedy = evaluate.load("sacrebleu")
         rouge_greedy = evaluate.load('rouge')

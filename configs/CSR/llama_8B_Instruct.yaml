@@ -1,0 +1,28 @@
+model_id: "meta-llama/Meta-Llama-3-8B-Instruct"
+output_dir: "./csr/results"
+torch_dtype: "torch.float32" # "torch.float32", "torch.bfloat16"
+
+data:
+  input_data_processed_path: "/cluster/home/terjenf/norwAI_All/llm_training/data_CSR/raw_data/dataset.json"
+  dataset_path_out: "/cluster/home/terjenf/norwAI_All/llm_training/data_CSR/tokenized"
+  test_size: 0.2
+  stratify: False
+  dataset_size: "full" # int or "full"
+
+lora_parameters:
+  rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+parameters:
+  lr: 0.0001 #1e-4
+  batch_size: 4
+  epochs: 1
+  gradient_accumulation_steps: 2
+  warmup_steps: 100
+  bf16: False
+  fp16: True
+  logging_steps: 1
+  eval_steps: 0.2
+  gradient_checkpointing: True
+

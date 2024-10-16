@@ -19,8 +19,8 @@ from peft import LoraConfig, get_peft_model
 
 sys.path.append("/cluster/home/terjenf/norwAI_All/llm_training")
 
-from util.trainers.custom_eval_trainer import CustomEvalTrainer
-from util.nrk_data.train_preprocess_data import format_tokenize_data, split_data, tokenize_format_eval, find_train_eval_split, load_train_eval_split, save_train_eval_split
+from util.eirsteir_data.train_preprocess_csr import format_tokenize_data
+from util.trainers.CSR.custom_eval_trainer_CSR import CustomEvalTrainer_CSR
 
 load_dotenv()
 os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
@@ -57,7 +57,8 @@ def parse_args():
 def load_model_tokenizer(model_id, torch_dtype):
 
     torch_dtype = eval(torch_dtype)
-    if "llama" in model_id.lower(): 
+    if "llama" in model_id.lower():
+
         tokenizer = LlamaTokenizer.from_pretrained(model_id, device_map="auto")
         model = LlamaForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch_dtype)
 
@@ -66,7 +67,7 @@ def load_model_tokenizer(model_id, torch_dtype):
         model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch_dtype)
 
     tokenizer.pad_token = tokenizer.eos_token
-    model.resize_token_embeddings(len(tokenizer))
+    # model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
 def freeze_pretrained(model):
@@ -105,7 +106,8 @@ if __name__ == "__main__":
     try:
         with open(args.exp_config_path, 'r') as file:
             config = yaml.safe_load(file)
-            exp_name = file.name.split("/")[-1].split(".")[0]
+            # exp_name = file.name.split("/")[-1].split(".")[0]
+            exp_name = config.get("model_id")
             
     except FileNotFoundError as e: 
          raise Exception("Error while loading yaml config",  e)
@@ -123,24 +125,9 @@ if __name__ == "__main__":
         )
 
     model, tokenizer = load_model_tokenizer(model_id=config.get("model_id"), torch_dtype=config.get("torch_dtype"))
-    data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"), data_size=config.get('data')['dataset_size'])
 
-    if not find_train_eval_split(config.get("model_id"), config.get("data")): 
-        train_data, eval_data = split_data(data, config.get("model_id"), config.get("data"))
-        eval_data = tokenize_format_eval(eval_data, tokenizer)
-        save_train_eval_split(train_data, eval_data, config.get("model_id"), config.get("data"))
-
-    else:
-        train_data, eval_data = load_train_eval_split(config.get("model_id"), config.get("data"))
-
+    data = format_tokenize_data(tokenizer,config.get("model_id"), config.get("data"))
     
-
-    if config['data'].get("dataset_size") is not None:
-        data_size = config['data'].get("dataset_size")
-        if data_size != "full":
-            train_data = train_data.select(range(int(int(data_size)*0.8)))
-            eval_data = eval_data.select(range(int(int(data_size)*0.2)))
-
     freeze_pretrained(model)
     model.lm_head = CastOutputToFloat(model.lm_head)
 
@@ -157,14 +144,14 @@ if __name__ == "__main__":
 
     config_parm = config['parameters']
     
-    trainer = CustomEvalTrainer(
+    trainer = CustomEvalTrainer_CSR(
             model = peft_model, 
             tokenizer=tokenizer,
-            train_dataset=train_data,
+            train_dataset=data['train'],
             args=transformers.TrainingArguments(
                 per_device_train_batch_size=config_parm["batch_size"], 
                 gradient_accumulation_steps=config_parm['gradient_accumulation_steps'],
-                evaluation_strategy='steps',
+                evaluation_strategy='epoch',
                 eval_steps=config_parm['eval_steps'],
                 num_train_epochs=config_parm["epochs"],
                 warmup_steps=config_parm['warmup_steps'], 
@@ -180,11 +167,11 @@ if __name__ == "__main__":
                 report_to='wandb' if args.track else 'none',
             ),
             data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
-            eval_dataset=eval_data
+            eval_dataset=data['eval']
         )
 
     peft_model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     print("STARTING TRAINING:...")
-    trainer.evaluate()
-    #trainer.model.save_pretrained(peft_model_output_dir)
+    trainer.train()
+    trainer.model.save_pretrained(peft_model_output_dir)
     print("Done!")
